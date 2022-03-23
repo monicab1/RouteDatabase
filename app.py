@@ -6,6 +6,7 @@
 #pylint: disable=trailing-whitespace
 #pylint: disable=wrong-import-order
 #pylint: disable=unused-import
+#pylint: disable=no-member
 import os
 import flask
 import requests
@@ -16,6 +17,7 @@ from flask import request
 from sqlalchemy import func
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import exists,delete
+from flask_login import UserMixin
 
 from dotenv import find_dotenv, load_dotenv
 
@@ -35,13 +37,33 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app) #pass the app object into the DB
 
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(20), unique=True, nullable=False) #each username must be different
 
-@app.route("/")
+db.create_all() #creates the entire database
+
+
+@app.route("/",methods=["GET", "POST"])
 def index():
     """
     method 
     """
-    return flask.render_template("index.html")
+    if flask.request.method =="POST":
+        data = flask.request.form.get("add_user") #tells what to do with the form data
+        target = db.session.query(db.exists().where(User.username==data)).scalar()
+        if (data==""):
+            flask.flash("please enter a username!")
+            return redirect(url_for('index'))
+        elif (target==True):
+            flask.flash("username already exists!")    
+            return redirect(url_for('index'))
+        else:
+            new_user=User(username=data)
+            db.session.add(new_user)
+            db.session.commit()
+
+    return flask.render_template("login.html")
 
 
 
